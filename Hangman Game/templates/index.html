@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .game-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+        }
+        .letter-buttons button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background: #007BFF;
+            color: white;
+            border-radius: 5px;
+        }
+        .letter-buttons button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #reset, #next-word {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #reset {
+            background: #28a745;
+            color: white;
+        }
+        #reset:hover {
+            background: #218838;
+        }
+        #next-word {
+            background: #007BFF;
+            color: white;
+            display: none;
+        }
+        #next-word:hover {
+            background: #0056b3;
+        }
+        #win-streak {
+            color:#007BFF;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Hangman Game</h1>
+        <p id="win-streak">Win Streak: 0</p> <!-- Win Streak Display -->
+        <p id="word-display">_ _ _ _ _</p>
+        <p>Incorrect guesses left: <span id="attempts">6</span></p>
+        <div class="letter-buttons"></div>
+        <p id="message"></p>
+        <button id="reset">Restart Game</button>
+        <button id="next-word">Next Word</button> <!-- Next Word Button -->
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            let selectedWord = "";
+            let guessedLetters = new Set();
+            let incorrectGuesses = 0;
+            const maxAttempts = 6;
+
+            const wordDisplay = document.getElementById("word-display");
+            const attemptsDisplay = document.getElementById("attempts");
+            const messageDisplay = document.getElementById("message");
+            const letterButtons = document.querySelector(".letter-buttons");
+            const resetButton = document.getElementById("reset");
+            const nextWordButton = document.getElementById("next-word");
+            const winStreakDisplay = document.getElementById("win-streak");
+
+            async function fetchWord() {
+                const response = await fetch("/get_word");
+                const data = await response.json();
+                if (data.word) {
+                    selectedWord = data.word.toUpperCase();
+                    guessedLetters.clear();
+                    incorrectGuesses = 0;
+                    updateWordDisplay();
+                    createButtons();
+                    attemptsDisplay.textContent = maxAttempts;
+                    messageDisplay.textContent = "";
+                    nextWordButton.style.display = "none";  // Hide "Next Word" initially
+                    updateWinStreakDisplay(data.win_streak);
+                } else {
+                    wordDisplay.textContent = "Error loading word!";
+                }
+            }
+
+            function updateWordDisplay() {
+                wordDisplay.textContent = selectedWord.split('').map(letter => guessedLetters.has(letter) ? letter : '_').join(' ');
+            }
+
+            function createButtons() {
+                letterButtons.innerHTML = '';
+                for (let i = 65; i <= 90; i++) {
+                    let button = document.createElement("button");
+                    button.textContent = String.fromCharCode(i);
+                    button.addEventListener("click", () => handleGuess(button));
+                    letterButtons.appendChild(button);
+                }
+            }
+
+            function handleGuess(button) {
+                let letter = button.textContent;
+
+                if (guessedLetters.has(letter)) {
+                    messageDisplay.textContent = "You already guessed that letter!";
+                    return;
+                }
+
+                guessedLetters.add(letter);
+                button.disabled = true; // Disable the button after clicking
+
+                if (selectedWord.includes(letter)) {
+                    messageDisplay.textContent = "Good guess!";
+                } else {
+                    incorrectGuesses++;
+                    attemptsDisplay.textContent = maxAttempts - incorrectGuesses;
+                    messageDisplay.textContent = "Wrong guess!";
+                }
+
+                updateWordDisplay();
+                checkGameStatus();
+            }
+
+            function updateWinStreakDisplay(streak) {
+                winStreakDisplay.textContent = `Win Streak: ${streak}`;
+            }
+
+            async function incrementWinStreak() {
+                const response = await fetch("/update_streak", { method: "POST" });
+                const data = await response.json();
+                updateWinStreakDisplay(data.win_streak);
+            }
+
+            async function resetWinStreak() {
+                const response = await fetch("/reset_streak", { method: "POST" });
+                const data = await response.json();
+                updateWinStreakDisplay(data.win_streak);
+            }
+
+            function checkGameStatus() {
+                if ([...selectedWord].every(letter => guessedLetters.has(letter))) {
+                    messageDisplay.textContent = "🎉 Congratulations! You guessed the word!";
+                    incrementWinStreak();
+                    disableButtons();
+                    nextWordButton.style.display = "inline-block";  // Show "Next Word" button
+                } else if (incorrectGuesses >= maxAttempts) {
+                    messageDisplay.textContent = `Game Over! The word was: ${selectedWord}`;
+                    resetWinStreak();  // Reset win streak on loss
+                    disableButtons();
+                    resetButton.style.display = "inline-block"; // Show restart button
+                }
+            }
+
+            function disableButtons() {
+                document.querySelectorAll(".letter-buttons button").forEach(button => button.disabled = true);
+            }
+
+            function resetGame() {
+                fetchWord();
+            }
+
+            resetButton.addEventListener("click", resetGame);
+            nextWordButton.addEventListener("click", fetchWord);
+
+            fetchWord();
+        });
+    </script>
+</body>
+</html>
