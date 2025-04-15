@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Portfolio Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Stock Portfolio Tracker</h1>
+        <form action="/add" method="POST">
+            <input type="text" name="ticker" placeholder="Ticker (e.g. AAPL)" required>
+            <input type="number" name="shares" placeholder="Shares" required>
+            <input type="number" step="0.01" name="price" placeholder="Purchase Price" required>
+            <button type="submit">Add Stock</button>
+        </form>
+        <table>
+            <tr>
+                <th>Ticker</th>
+                <th>Shares</th>
+                <th>Purchase Price</th>
+                <th>Action</th>
+            </tr>
+            {% for stock in stocks %}
+            <tr>
+                <td>{{ stock[1] }}</td>
+                <td>{{ stock[2] }}</td>
+                <td>${{ "%.2f"|format(stock[3]) }}</td>
+                <td><a href="/delete/{{ stock[0] }}">🗑️ Delete</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
